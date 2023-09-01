@@ -1,0 +1,234 @@
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko" lang="ko">
+
+<head>
+  <title>Cross-Browser QRCode generator for Javascript</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <script type="text/javascript" src="qr/jquery.min.js"></script>
+  <script type="text/javascript" src="qr/qrcode.js"></script>
+</head>
+
+<script src="bundle.js"></script>
+<script>
+  const sdk = new MetaMaskSDK.MetaMaskSDK({
+    forceInjectProvider: typeof window.ethereum === 'undefined',
+    dappMetadata: {
+      name: "Pure JS example",
+      url: window.location.host,
+    }
+  });
+
+  window.ethereum = sdk.getProvider();
+
+  function connect() {
+    window.ethereum
+      .request({
+        method: 'eth_requestAccounts',
+        params: [],
+      })
+      .then((res) => console.log('request accounts', res))
+      .catch((e) => console.log('request accounts ERR', e));
+  }
+
+  function addEthereumChain() {
+    window.ethereum
+      .request({
+        method: 'wallet_addEthereumChain',
+        params: [
+          {
+            chainId: '0x89',
+            chainName: 'Polygon',
+            blockExplorerUrls: ['https://polygonscan.com'],
+            nativeCurrency: { symbol: 'MATIC', decimals: 18 },
+            rpcUrls: ['https://polygon-rpc.com/'],
+          },
+        ],
+      })
+      .then((res) => console.log('add', res))
+      .catch((e) => console.log('ADD ERR', e));
+  }
+</script>
+
+<div id="root">
+  <button onclick="connect()">Connect with MetaMask</button>
+  <button onclick="addEthereumChain()">Add Ethereum Chain</button>
+</div>
+
+
+
+<script>
+
+  const domain = "http://192.168.1.235"
+
+  async function list() {
+    const user = {
+      amount: document.getElementById("amount").value,
+      address: document.getElementById("address").value,
+      inputChain: document.getElementById("in").value,
+      outputChain: document.getElementById("out").value,
+      price: document.getElementById("price").value
+    }
+
+    let options = {
+      method: 'POST',
+      body: JSON.stringify(user),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+    let data = await fetch(domain + ":8888/upload/list", options)
+    let dataJSON = await data.json()
+    alert(JSON.stringify(dataJSON))
+  }
+</script>
+<input id="amount" type="number" placeholder="input amount"></input>
+<input id="price" type="number" placeholder="price"></input>
+<input id="address" type="text" placeholder="OUTPUT address"></input>
+<select id="in">
+  <option value="bitcoin">BitCoin</option>
+  <option value="algorand">Algorand</option>
+  <option value="moonbeam">Moonbeam</option>
+  <option value="solana">Solana</option>
+  <option value="ethereum">Ethereum</option>
+</select>
+
+<select id="out">
+  <option value="bitcoin">BitCoin</option>
+  <option value="algorand">Algorand</option>
+  <option value="moonbeam">Moonbeam</option>
+  <option value="solana">Solana</option>
+  <option value="ethereum">Ethereum</option>
+</select>
+<button onclick="list()">List</button>
+<div></div>
+<h1>Sell orders</h1>
+<div id="sell"></div>
+<script>
+  function generateHTML(obj, index) {
+
+    console.log(obj)
+    let string = ""
+
+    Object.keys(obj).forEach(key => {
+      string += "<p><b>" + key + ":</b>" + ` ` + obj[key] + "</p>"
+    })
+    string += '<button id="' + index + '">Buy</button><div style="display:none;"><input id="qr-' + index + '" value="' + obj.escrow2 + '"></div><div id="qrcode-' + index + '" style="width:100px; height:100px; margin-top:15px;"></div>'
+    return string
+
+  }
+
+  async function buy(index) {
+
+    const user = {
+      index: index,
+      address: document.getElementById("address").value,
+    }
+
+    let options = {
+      method: 'POST',
+      body: JSON.stringify(user),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+    let data = await fetch(domain + ":8888/upload/buy", options)
+    let dataJSON = await data.json()
+    alert(JSON.stringify(dataJSON))
+  }
+
+
+
+
+  async function getOrders(type) {
+
+    let data = await fetch(domain + ":8888/index/" + type)
+    let dataJSON = await data.json()
+
+    Object.keys(dataJSON).forEach(key => {
+      document.getElementById(type).innerHTML += generateHTML(dataJSON[key], key)
+
+      console.log(key)
+      makeCode("qr-" + key, "qrcode-" + key)
+      document.getElementById(key).onclick = function () { buy(key) }
+    })
+
+  }
+  getOrders("sell")
+</script>
+
+<div id="qrcode"></div>
+<script type="text/javascript">
+  new QRCode(document.getElementById("qrcode"), "");
+</script>
+
+
+
+<script type="text/javascript">
+
+  function makeCode(id, id2) {
+
+    var qrcode = new QRCode(document.getElementById(id2), {
+      width: 100,
+      height: 100
+    });
+
+    var elText = document.getElementById(id);
+
+    if (!elText.value) {
+      alert("Input a text");
+      elText.focus();
+      return;
+    }
+
+    qrcode.makeCode(elText.value);
+  }
+
+  //makeCode();
+
+  $("#text").
+    on("blur", function () {
+      makeCode();
+    }).
+    on("keydown", function (e) {
+      if (e.keyCode == 13) {
+        makeCode();
+      }
+    });
+</script>
+
+<button id=".sendEthButton">Send Eth</button>
+
+
+
+<script>
+
+const sendEthButton = document.getElementById('.sendEthButton');
+
+let accounts = [];
+
+// Send Ethereum to an address
+sendEthButton.addEventListener('click', async () => {
+
+
+  accounts = await ethereum.request({ method: 'eth_requestAccounts' })
+
+  window.ethereum
+    .request({
+      method: 'eth_sendTransaction',
+      params: [
+        {
+          from: accounts[0], // The user's active address.
+          to: '0x2f318C334780961FB129D2a6c30D0763d9a5C970', // Required except during contract publications.
+          value: '0x00', // Only required to send ether to the recipient from the initiating external account.
+          gasPrice: '0x09184e72a000', // Customizable by the user during MetaMask confirmation.
+          gas: '0x2710', // Customizable by the user during MetaMask confirmation.
+        },
+      ],
+    })
+    .then((txHash) => console.log(txHash))
+    .catch((error) => console.error(error));
+});
+
+</script>
